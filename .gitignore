@@ -172,3 +172,26 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+benchmark_report_20250406_210440.json
+benchmark_report_20250406_210727.json
+benchmark_report_20250406_210946.json
+benchmark_results.png
+benchmark.py
+dump.rdb
+integration_results_20250501_214131.html
+integration_results_20250501_214131.json
+integration_results_20250501_220550.html
+integration_results_20250501_220550.json
+integration_results_20250501_221435.html
+integration_results_20250501_221435.json
+integration_results_20250502_002547.html
+integration_results_20250502_002547.json
+key_rotation_test_20250406_205912.json
+key_rotation_test.py
+load_test_results_20250406_205448.json
+.vscode/settings.json
+tests/integration_test.py
+tests/load_test.py
+tests/test_high_concurrency.py
+.gitignore
+tests/test_api_server.py
