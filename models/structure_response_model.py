@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 
 class ChatMessageResponse(BaseModel):
-    message: str
+    message: str = Field(description="角色的簡訊內容，可含 emoji；不得出現任何動作或旁白")
 
 
 class ActionDialoguePair(BaseModel):
@@ -31,16 +31,29 @@ class IntimacyResponse(BaseModel):
     intimacy: int = Field(description="角色親密度變化值")
 
 
+class ImportantEvent(BaseModel):
+    date: str  # YYYY-MM-DD
+    title: str
+    description: str
+    reason: Optional[str] = None
+
+
+class Promise(BaseModel):
+    date: str  # YYYY-MM-DD
+    content: str
+
+
 class UserPersona(BaseModel):
-    name: Optional[str]
-    nickname: Optional[List[str]]
-    birthday: Optional[str]
-    age: Optional[int]
-    profession: Optional[str]
-    gender: Optional[str]
-    personality: Optional[List[str]]
-    likesDislikes: Optional[List[str]]
-    promises: Optional[List[str]]
+    name: Optional[str] = None
+    nickname: Optional[List[str]] = None
+    birthday: Optional[str] = None  # YYYY-MM-DD
+    age: Optional[int] = None
+    profession: Optional[str] = None
+    gender: Optional[str] = None
+    personality: Optional[List[str]] = None
+    likesDislikes: Optional[List[str]] = None
+    promises: List[Promise] = Field(default_factory=list)
+    importantEvent: List[ImportantEvent] = Field(default_factory=list)
 
 
 class UserPersonaResponse(BaseModel):
