@@ -108,6 +108,7 @@ class OpenAIAPIService(LLMService):
                 client = OpenAI(api_key=api_key)
 
                 # 處理結構化輸出
+                # 處理結構化輸出
                 if is_structured_output and pydantic_model:
                     # 檢查模型是否支援結構化輸出
                     if model not in await self._get_models_with_structured_output():
@@ -117,24 +118,26 @@ class OpenAIAPIService(LLMService):
 
                     logger.info(f"使用 beta.chat.completions.parse 方法處理 '{response_format}' 結構化輸出")
 
-                    # 直接使用 parse 方法，與 Grok 實現保持一致
-                    # 注意：不加入系統消息，直接傳遞 Pydantic 模型
+                    # 準備請求參數
+                    parse_kwargs = {"model": model, "messages": messages, "response_format": pydantic_model}
+                    for param in ["temperature", "max_tokens", "top_p", "stream"]:
+                        if param in request_data:
+                            parse_kwargs[param] = request_data[param]
+
                     try:
-                        # 準備請求參數
-                        parse_kwargs = {"model": model, "messages": messages, "response_format": pydantic_model}
-
-                        # 添加其他參數
-                        for param in ["temperature", "max_tokens", "top_p", "stream"]:
-                            if param in request_data:
-                                parse_kwargs[param] = request_data[param]
-
                         logger.info(f"發送 parse 請求: {model}, Pydantic 模型: {pydantic_model.__name__}")
-                        completion = client.beta.chat.completions.parse(**parse_kwargs)
+                        # 推到背景執行緒並加 30 秒超時
+                        completion = await asyncio.wait_for(asyncio.to_thread(client.beta.chat.completions.parse,
+                                                                              **parse_kwargs),
+                                                            timeout=30)
                         logger.info(f"收到 parse 回應: {completion}")
                         logger.info("成功使用 parse 方法獲取結構化輸出")
+                    except asyncio.TimeoutError:
+                        logger.error("beta.chat.completions.parse 超時")
+                        raise HTTPException(status_code=504, detail="OpenAI parse 請求超時")
                     except Exception as parse_error:
                         logger.error(f"使用 beta.chat.completions.parse 方法失敗: {parse_error}")
-                        raise HTTPException(status_code=500, detail=f"無法使用結構化輸出: {str(parse_error)}")
+                        raise HTTPException(status_code=500, detail=f"無法使用結構化輸出: {parse_error}")
 
                 elif response_format and isinstance(response_format,
                                                     dict) and response_format.get("type") == "json_object":
