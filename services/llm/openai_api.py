@@ -96,7 +96,10 @@ class OpenAIAPIService(LLMService):
         while available_keys and (not tried_keys or tried_keys != available_keys):
             try:
                 # 獲取 API 金鑰
-                api_key = await self.key_manager.get_next_key("openai")
+                if model == "grok-3":
+                    api_key = await self.key_manager.get_next_key("grok")
+                else:
+                    api_key = await self.key_manager.get_next_key("openai")
 
                 # 如果已嘗試過此金鑰則跳過（除非是速率限制重試）
                 if api_key in tried_keys:
@@ -299,6 +302,8 @@ class OpenAIAPIService(LLMService):
             return "gpt-4"
         elif "gpt-3.5-turbo" in available_models:
             return "gpt-3.5-turbo"
+        elif "grok-3" in available_models:
+            return "grok-3"
         else:
             # 回退到可用的第一個模型
             return available_models[0] if available_models else self.default_model
@@ -353,4 +358,6 @@ class OpenAIAPIService(LLMService):
             List[str]: 模型列表
         """
         # OpenAI 常用模型列表
-        return ["gpt-4.1-2025-04-14", "gpt-4-turbo", "gpt-4", "gpt-4-32k", "gpt-3.5-turbo", "gpt-3.5-turbo-16k"]
+        return [
+            "grok-3", "gpt-4.1-2025-04-14", "gpt-4-turbo", "gpt-4", "gpt-4-32k", "gpt-3.5-turbo", "gpt-3.5-turbo-16k"
+        ]
