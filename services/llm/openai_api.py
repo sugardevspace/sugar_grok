@@ -62,12 +62,12 @@ class OpenAIAPIService(LLMService):
         model = request_data.get('model', self.default_model)
         messages = request_data.get('messages', [])
 
-        # 確保模型是 OpenAI 支援的
-        if not model.startswith("gpt-"):
-            original_model = model
-            model = self.default_model
-            request_data['model'] = model
-            logger.info(f"將非 OpenAI 模型 {original_model} 轉換為 {model}")
+        # # 確保模型是 OpenAI 支援的
+        # if not model.startswith("gpt-"):
+        #     original_model = model
+        #     model = self.default_model
+        #     request_data['model'] = model
+        #     logger.info(f"將非 OpenAI 模型 {original_model} 轉換為 {model}")
 
         # 檢查是否要求結構化輸出
         response_format = request_data.get("response_format")
@@ -108,9 +108,11 @@ class OpenAIAPIService(LLMService):
                 tried_keys.add(api_key)
 
                 # 初始化 OpenAI 客戶端
-                client = OpenAI(api_key=api_key)
+                if model == "grok-3":
+                    client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")  # Grok API URL
+                else:
+                    client = OpenAI(api_key=api_key)  # 默認使用 OpenAI API URL
 
-                # 處理結構化輸出
                 # 處理結構化輸出
                 if is_structured_output and pydantic_model:
                     # 檢查模型是否支援結構化輸出
