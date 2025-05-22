@@ -115,8 +115,8 @@ class GrokAPIService(LLMService):
                 # 使用 beta.chat.completions.parse 方法
                 logger.info(f"使用 beta.chat.completions.parse 方法處理 '{response_format}' 結構化輸出")
 
-                # 發送請求
-                completion = client.beta.chat.completions.parse(**kwargs)
+                completion = await asyncio.wait_for(asyncio.to_thread(client.beta.chat.completions.parse, **kwargs),
+                                                    timeout=30)
 
                 # 取得解析後的 Pydantic 對象
                 parsed_obj = completion.choices[0].message.parsed
