@@ -17,7 +17,7 @@ class MemoryQueueManager(QueueManager):
         self.responses = {}  # request_id -> response_data
         logger.info("初始化記憶體佇列")
 
-    async def enqueue(self, request_data: Dict[str, Any]) -> str:
+    async def enqueue(self, request_data: Dict[str, Any], priority: int = 10) -> str:
         """
         將請求添加到記憶體佇列
         

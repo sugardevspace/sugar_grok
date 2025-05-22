@@ -61,34 +61,26 @@ class RedisQueueManager(QueueManager):
 
             # 如果所有重試都失敗，拋出異常
             raise ConnectionError("無法連接到 Redis 服務器")
-
-    async def enqueue(self, request_data: Dict[str, Any]) -> str:
+        
+    async def enqueue_with_error_handling(self, request_data: Dict[str, Any], priority: int) -> str:
         """
-        將請求添加到 Redis 佇列，添加錯誤處理和重試
+        內部方法
+        
+        Args:
+            request_data: 已經包好的資料包
+            priority: 已經處理好的優先級
         """
-        # 產生唯一請求 ID
-        request_id = f"req_{int(time.time() * 1000)}_{os.urandom(4).hex()}"
 
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 # 檢查 Redis 連接
                 self.redis.ping()
-
-                # 將請求資料添加到佇列
-                self.redis.rpush(self.queue_key,
-                                 json.dumps({
-                                     "id": request_id,
-                                     "data": request_data,
-                                     "timestamp": time.time()
-                                 }))
-
-                logger.debug(f"已將請求 {request_id} 加入 Redis 佇列")
-                return request_id
-
+                self.redis.zadd(self.queue_key, {json.dumps(request_data): priority})
+                return
             except redis.exceptions.ConnectionError as e:
                 # Redis 連接錯誤，嘗試重新連接
-                logger.warning(f"Redis 連接錯誤 (嘗試 {attempt+1}/{max_retries}): {e}")
+                logger.warning(f"Redis 連接錯誤 (嘗試 {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:  # 不是最後一次嘗試
                     try:
                         # 重新初始化連接
@@ -113,7 +105,7 @@ class RedisQueueManager(QueueManager):
                         raise
 
             except Exception as e:
-                logger.error(f"Redis 操作失敗 (嘗試 {attempt+1}/{max_retries}): {e}")
+                logger.error(f"Redis 操作失敗 (嘗試 {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(0.5 * (attempt + 1))
                 else:
@@ -124,6 +116,35 @@ class RedisQueueManager(QueueManager):
         # 理論上不應該到達這裡
         raise RuntimeError("Redis 操作失敗且未正確處理")
 
+    async def enqueue(self, request_data: Dict[str, Any], priority: int = 10) -> str:
+        """
+        將請求添加到 Redis 佇列
+
+        Args:
+            priority: 這項請求的優先級(0~100)越小越優先
+        """
+        # 產生唯一請求 ID
+        request_id = f"req_{int(time.time() * 1000)}_{os.urandom(4).hex()}"
+
+        # 檢查優先級範圍
+        priority = max(0, min(100, priority))
+
+        payload = {
+            "id": request_id,
+            "data": request_data,
+            "timestamp": time.time(),
+            "priority": priority
+        }
+        # 當有同優先級的存在，先處裡早到的
+        ts_ms = int(payload["timestamp"] * 1000)
+        composite_score = priority * (10**13) + ts_ms
+
+        # 將請求資料添加到佇列
+        await self.enqueue_with_error_handling(payload, composite_score)
+
+        logger.debug(f"已將請求 {request_id} 加入 Redis 佇列")
+        return request_id
+
     async def priority_enqueue(self, request_item: Dict[str, Any]) -> None:
         """
         將請求添加到 Redis 佇列前端（優先處理）
@@ -131,7 +152,7 @@ class RedisQueueManager(QueueManager):
         Args:
             request_item: 要排入佇列的請求項目
         """
-        self.redis.lpush(self.queue_key, json.dumps(request_item))
+        await self.enqueue_with_error_handling(request_item, request_item["timestamp"])
         logger.debug(f"已將請求 {request_item.get('id')} 加入 Redis 佇列前端（優先）")
 
     async def dequeue(self) -> Optional[Dict[str, Any]]:
@@ -141,11 +162,12 @@ class RedisQueueManager(QueueManager):
         Returns:
             Optional[Dict[str, Any]]: 請求資料，如佇列為空則返回 None
         """
-        # 使用 LPOP 從佇列頭部取出一個項目
-        data = self.redis.lpop(self.queue_key)
+        # 使用 zpopmin 從佇列頂端取出一個項目
+        data = self.redis.zpopmin(self.queue_key)
 
         if data:
-            request_item = json.loads(data)
+            # 因為回傳的是reponstT格式的資料，所以要拆兩層[("我要的",優先級)]
+            request_item = json.loads(data[0][0])
             logger.debug(f"從 Redis 佇列取出請求 {request_item.get('id')}")
             return request_item
 
@@ -158,7 +180,7 @@ class RedisQueueManager(QueueManager):
         Returns:
             int: 佇列中的請求數量
         """
-        return self.redis.llen(self.queue_key)
+        return self.redis.zcard(self.queue_key)
 
     async def store_response(self, request_id: str, response_data: Dict[str, Any]) -> None:
         """

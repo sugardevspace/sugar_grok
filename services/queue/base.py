@@ -6,12 +6,13 @@ class QueueManager(ABC):
     """佇列管理器抽象基類"""
 
     @abstractmethod
-    async def enqueue(self, request_data: Dict[str, Any]) -> str:
+    async def enqueue(self, request_data: Dict[str, Any], priority: int = 10) -> str:
         """
         將請求添加到佇列
         
         Args:
             request_data: 要排入佇列的請求資料
+            priority: 這項請求的優先級(0~100)越小越優先
             
         Returns:
             str: 請求 ID
