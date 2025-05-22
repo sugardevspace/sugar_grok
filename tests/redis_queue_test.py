@@ -8,6 +8,7 @@ from core.setting import settings
 
 # ---------- Fixtures ----------
 
+
 @pytest.fixture(scope="function")
 def test_redis():
     """
@@ -33,6 +34,7 @@ def test_redis():
     # 當測試結束時清空
     r.flushdb()
 
+
 @pytest.fixture(scope="function")
 def queue_mgr(test_redis):
     """
@@ -46,6 +48,7 @@ def queue_mgr(test_redis):
     return mgr
 
 # ---------- 單元測試 ----------
+
 
 @pytest.mark.asyncio
 async def test_enqueue_and_dequeue(queue_mgr):
@@ -66,6 +69,46 @@ async def test_enqueue_and_dequeue(queue_mgr):
     # Queue 應為空
     assert await queue_mgr.dequeue() is None
 
+
+@pytest.mark.asyncio
+async def test_priority_enqueue_and_dequeue(queue_mgr):
+    # 建立一個被重新放入佇列的資料
+    req_data = {"foo": "bar"}
+    await queue_mgr.enqueue(req_data)
+    req_data_priority = await queue_mgr.dequeue()
+    assert req_data_priority is not None
+
+    # 修改資料內容，並記錄id
+    req_data_priority["foo"] = "bar_priority"
+    req_id_priority = req_data_priority["id"]
+
+    # 放入隊列(優先模式)
+    req_id = await queue_mgr.enqueue(req_data)
+    await queue_mgr.priority_enqueue(req_data_priority)
+
+    # 後發先至
+    res_data = await queue_mgr.dequeue()
+    assert res_data["id"] == req_id_priority
+    res_data = await queue_mgr.dequeue()
+    assert res_data["id"] == req_id
+
+
+@pytest.mark.asyncio
+async def test_enqueue_priority_parameter(queue_mgr):
+    # 建立資料並以不同優先級放入隊列
+    req_data = {"foo": "bar"}
+    req_id_10 = await queue_mgr.enqueue(req_data, 10)
+    req_id_5 = await queue_mgr.enqueue(req_data, 5)
+
+    # 檢查資料與優先級
+    res_data = await queue_mgr.dequeue()
+    assert res_data["id"] == req_id_5
+    assert res_data["priority"] == 5
+    res_data = await queue_mgr.dequeue()
+    assert res_data["id"] == req_id_10
+    assert res_data["priority"] == 10
+
+
 @pytest.mark.asyncio
 async def test_store_and_get_response(queue_mgr):
     req_id = "req_test_123"
@@ -76,6 +119,7 @@ async def test_store_and_get_response(queue_mgr):
     assert json.loads(got) == resp
 
 # ---------- Benchmarked Stress Test ----------
+
 
 def test_stress_enqueue_benchmark(benchmark, queue_mgr):
     TOTAL_MESSAGES = 5000
