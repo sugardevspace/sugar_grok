@@ -96,7 +96,7 @@ class OpenAIAPIService(LLMService):
         while available_keys and (not tried_keys or tried_keys != available_keys):
             try:
                 # 獲取 API 金鑰
-                if model == "grok-2-1212":
+                if model == "grok-3":
                     api_key = await self.key_manager.get_next_key("grok")
                 else:
                     api_key = await self.key_manager.get_next_key("openai")
@@ -108,7 +108,7 @@ class OpenAIAPIService(LLMService):
                 tried_keys.add(api_key)
 
                 # 初始化 OpenAI 客戶端
-                if model == "grok-2-1212":
+                if model == "grok-3":
                     client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")  # Grok API URL
                 else:
                     client = OpenAI(api_key=api_key)  # 默認使用 OpenAI API URL
@@ -304,8 +304,8 @@ class OpenAIAPIService(LLMService):
             return "gpt-4"
         elif "gpt-3.5-turbo" in available_models:
             return "gpt-3.5-turbo"
-        elif "grok-2-1212" in available_models:
-            return "grok-2-1212"
+        elif "grok-3" in available_models:
+            return "grok-3"
         else:
             # 回退到可用的第一個模型
             return available_models[0] if available_models else self.default_model
@@ -361,6 +361,6 @@ class OpenAIAPIService(LLMService):
         """
         # OpenAI 常用模型列表
         return [
-            "grok-2-1212", "gpt-4.1-2025-04-14", "gpt-4-turbo", "gpt-4", "gpt-4-32k", "gpt-3.5-turbo",
+            "grok-3", "gpt-4.1-2025-04-14", "gpt-4-turbo", "gpt-4", "gpt-4-32k", "gpt-3.5-turbo",
             "gpt-3.5-turbo-16k"
         ]
