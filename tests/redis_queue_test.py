@@ -7,6 +7,8 @@ from services.queue.redis_queue import RedisQueueManager
 from core.setting import settings
 
 # ---------- Fixtures ----------
+redis_queue_key = "pytest_queue"
+req_data = {"foo": "bar"}
 
 
 @pytest.fixture(scope="function")
@@ -16,7 +18,6 @@ def test_redis():
     """
     # 使用測試用資料庫與變數
     os.environ["REDIS_DB"] = "1"
-    os.environ["REDIS_QUEUE_KEY"] = "pytest_queue"
     os.environ["REDIS_RESPONSE_PREFIX"] = "pytest_resp_"
 
     # 連線Redis
@@ -43,9 +44,87 @@ def queue_mgr(test_redis):
     mgr = RedisQueueManager()
     # 使用測試資料庫覆寫
     mgr.redis = test_redis
-    mgr.queue_key = os.environ["REDIS_QUEUE_KEY"]
+    mgr.queue_key = redis_queue_key
     mgr.response_prefix = os.environ["REDIS_RESPONSE_PREFIX"]
     return mgr
+
+
+# ---------- 單功能測試 ----------
+
+@pytest.mark.asyncio
+async def test_get_redis_connection(queue_mgr):
+    result = queue_mgr.get_redis_connection()
+    assert queue_mgr.redis == result
+
+
+@pytest.mark.asyncio
+async def test_enqueue(queue_mgr):
+    assert queue_mgr.redis.zcard(redis_queue_key) == 0
+    req_id = await queue_mgr.enqueue(req_data, 10)
+    result = queue_mgr.redis.zpopmin(redis_queue_key)
+    result = json.loads(result[0][0])
+    assert req_id == result["id"]
+    assert req_data == result["data"]
+    assert 10 == result["priority"]
+
+
+@pytest.mark.asyncio
+async def test_priority_enqueue(queue_mgr):
+    assert queue_mgr.redis.zcard(redis_queue_key) == 0
+    req_id = await queue_mgr.enqueue(req_data, 10)
+    result = queue_mgr.redis.zpopmin(redis_queue_key)
+    result = json.loads(result[0][0])
+    assert req_id == result["id"]
+    req_id = await queue_mgr.enqueue(req_data, 5)
+    await queue_mgr.priority_enqueue(result)
+    assert queue_mgr.redis.zcard(redis_queue_key) == 2
+    resultB = queue_mgr.redis.zpopmin(redis_queue_key)
+    resultB = json.loads(resultB[0][0])
+    assert result == resultB
+
+
+@pytest.mark.asyncio
+async def test_dequeue(queue_mgr):
+    assert queue_mgr.redis.zcard(redis_queue_key) == 0
+    result = await queue_mgr.dequeue()
+    assert result is None
+    req_id = await queue_mgr.enqueue(req_data, 10)
+    result = await queue_mgr.dequeue()
+    assert result["id"] == req_id
+    assert result["data"] == req_data
+    assert result["priority"] == 10
+
+
+@pytest.mark.asyncio
+async def test_get_queue_length(queue_mgr):
+    assert queue_mgr.redis.zcard(redis_queue_key) == 0
+    for i in range(100):
+        await queue_mgr.enqueue(req_data)
+        assert await queue_mgr.get_queue_length() == i + 1
+    for i in range(100):
+        await queue_mgr.dequeue()
+        assert await queue_mgr.get_queue_length() == 99 - i
+
+
+@pytest.mark.asyncio
+async def test_store_response(queue_mgr):
+    assert await queue_mgr.get_queue_length() == 0
+    req_id = await queue_mgr.enqueue(req_data)
+    await queue_mgr.store_response(req_id, {"foo_fix": "Foo_fix"})
+    result = queue_mgr.redis.get(f"pytest_resp_{req_id}")
+    assert result == "{\"foo_fix\": \"Foo_fix\"}"
+    queue_mgr.redis.flushdb()
+
+
+@pytest.mark.asyncio
+async def test_get_response(queue_mgr):
+    assert await queue_mgr.get_queue_length() == 0
+    req_id = await queue_mgr.enqueue(req_data)
+    await queue_mgr.store_response(req_id, {"foo_fix": "Foo_fix"})
+    result = await queue_mgr.get_response(req_id)
+    print(result)
+    assert result == "{\"foo_fix\": \"Foo_fix\"}"
+    queue_mgr.redis.flushdb()
 
 # ---------- 單元測試 ----------
 
