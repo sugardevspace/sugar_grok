@@ -6,6 +6,11 @@ class ChatMessageResponse(BaseModel):
     message: str = Field(description="角色的簡訊內容，可含 emoji；不得出現任何動作或旁白")
 
 
+class StickerMessageResponse(BaseModel):
+    message: str = Field(description="角色的簡訊內容，不得出現任何動作或旁白")
+    sticker: str = Field(description="角色回覆內容對應貼圖名稱")
+
+
 class ActionDialoguePair(BaseModel):
     action_mood: str = Field(description="角色語氣或搭配的動作描述")
     message: str = Field(description="角色的說話內容")

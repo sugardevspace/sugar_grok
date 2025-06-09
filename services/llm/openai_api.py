@@ -8,8 +8,9 @@ from core.logger import logger
 from services.llm.base import LLMService
 from utils.api_key_manager import get_key_manager
 from utils.cost_calculator import calculate_cost
-from models.structure_response_model import (StoryMessageResponse, ChatMessageResponse, StimulationResponse,
-                                             IntimacyResponse, UserPersona, healthCheckResponse, LevelMessageResponse)
+from models.structure_response_model import (StickerMessageResponse, StoryMessageResponse, ChatMessageResponse,
+                                             StimulationResponse, IntimacyResponse, UserPersona, healthCheckResponse,
+                                             LevelMessageResponse)
 
 # 引入 OpenAI 客戶端
 from openai import OpenAI
@@ -36,6 +37,7 @@ class OpenAIAPIService(LLMService):
         self.RESPONSE_MODEL = {
             "story": StoryMessageResponse,
             "text": ChatMessageResponse,
+            "sticker": StickerMessageResponse,
             "stimulation": StimulationResponse,
             "level": LevelMessageResponse,
             "intimacy": IntimacyResponse,
@@ -361,6 +363,5 @@ class OpenAIAPIService(LLMService):
         """
         # OpenAI 常用模型列表
         return [
-            "grok-3", "gpt-4.1-2025-04-14", "gpt-4-turbo", "gpt-4", "gpt-4-32k", "gpt-3.5-turbo",
-            "gpt-3.5-turbo-16k"
+            "grok-3", "gpt-4.1-2025-04-14", "gpt-4-turbo", "gpt-4", "gpt-4-32k", "gpt-3.5-turbo", "gpt-3.5-turbo-16k"
         ]
